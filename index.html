@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Monitor de Academia</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin: 20px;
+        background-color: #f5f5f5;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        color: #333;
+      }
+
+      .panel {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+
+      .force-meter {
+        position: relative;
+        width: 100%;
+        height: 30px;
+        background-color: #eee;
+        border-radius: 15px;
+        overflow: hidden;
+        margin: 20px 0;
+      }
+
+      #forceBar {
+        height: 100%;
+        width: 0%;
+        background-color: #4caf50;
+        border-radius: 15px;
+        transition: width 0.2s;
+      }
+
+      .track-container {
+        position: relative;
+        width: 80%;
+        height: 250px;
+        margin: 0 auto;
+        border: none;
+        border-radius: 10px;
+        overflow: hidden;
+        background-color: #2a2a2a;
+      }
+
+      .track {
+        position: relative;
+        height: 100%;
+        width: 100%;
+        margin: 0 auto;
+        background: none;
+      }
+
+      .curve-path {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        fill: none;
+        stroke: #444;
+        stroke-width: 3;
+      }
+
+      .ball {
+        position: absolute;
+        width: 25px;
+        height: 25px;
+        background-color: white;
+        border-radius: 50%;
+        left: 50%;
+        transform: translateX(-50%);
+        transition: all 0.3s;
+        z-index: 2;
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+      }
+
+      .target-ball {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        background-color: #ffd700;
+        border-radius: 50%;
+        transition: all 0.3s;
+        z-index: 1;
+        box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+      }
+
+      .timer-display {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 24px;
+        color: white;
+        z-index: 3;
+        font-weight: bold;
+      }
+
+      .score-display {
+        font-size: 24px;
+        margin: 10px 0;
+        color: #333;
+        font-weight: bold;
+      }
+
+      .game-controls {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin: 10px 0;
+      }
+
+      .game-button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .start-button {
+        background-color: #4caf50;
+        color: white;
+      }
+
+      .pause-button {
+        background-color: #ff9800;
+        color: white;
+      }
+
+      .reset-button {
+        background-color: #f44336;
+        color: white;
+      }
+
+      .game-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .stats {
+        display: flex;
+        justify-content: space-around;
+        margin: 20px 0;
+      }
+
+      .stat-box {
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        width: 150px;
+      }
+
+      button {
+        padding: 10px 20px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 10px;
+      }
+
+      button:hover {
+        background-color: #45a049;
+      }
+
+      .status {
+        color: #777;
+        margin-bottom: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Monitor de Academia</h1>
+
+      <div class="panel">
+        <div class="status" id="status">Não conectado</div>
+        <button id="connectButton">Conectar Arduino</button>
+      </div>
+
+      <div class="panel">
+        <h2>Força Atual</h2>
+        <div class="force-meter">
+          <div id="forceBar"></div>
+        </div>
+        <div id="forceValue">0%</div>
+      </div>
+
+      <div class="panel">
+        <h2>Repetições</h2>
+        <div class="score-display">Pontuação: <span id="score">0</span></div>
+        <div class="game-controls">
+          <button id="startGame" class="game-button start-button">
+            Iniciar Jogo
+          </button>
+          <button id="pauseGame" class="game-button pause-button" disabled>
+            Pausar
+          </button>
+          <button id="resetGame" class="game-button reset-button" disabled>
+            Resetar
+          </button>
+        </div>
+        <div class="track-container">
+          <div class="timer-display"><span id="timer">30</span>s</div>
+          <div class="track">
+            <svg width="100%" height="100%" preserveAspectRatio="none">
+              <path class="curve-path" d="M0,125 Q200,50 400,125 T800,125" />
+            </svg>
+            <div class="ball" id="ball"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat-box">
+          <h3>Repetições</h3>
+          <div id="repCount">0</div>
+        </div>
+        <div class="stat-box">
+          <h3>Força Máxima</h3>
+          <div id="maxForce">0%</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Variáveis globais
+      let port;
+      let reader;
+      let readingData = false;
+      let maxForceValue = 0;
+      let score = 0;
+      let gameInterval;
+      let activeBalls = [];
+      let timeLeft = 30;
+      let timerInterval;
+
+      const KEY_GAME_STATUS = {
+        RUNNING: "running",
+        PAUSED: "paused",
+        STOPPED: "stopped",
+      };
+
+      let gameStatus = KEY_GAME_STATUS.STOPPED;
+
+      // Elementos da interface
+      const connectButton = document.getElementById("connectButton");
+      const statusElement = document.getElementById("status");
+      const forceBar = document.getElementById("forceBar");
+      const forceValue = document.getElementById("forceValue");
+      const ball = document.getElementById("ball");
+      const repCount = document.getElementById("repCount");
+      const maxForce = document.getElementById("maxForce");
+
+      // Elementos do jogo
+      const startButton = document.getElementById("startGame");
+      const pauseButton = document.getElementById("pauseGame");
+      const resetButton = document.getElementById("resetGame");
+
+      // Verificar se o navegador suporta a Web Serial API
+      if ("serial" in navigator) {
+        connectButton.addEventListener("click", connectToArduino);
+      } else {
+        statusElement.textContent =
+          "Web Serial não suportada neste navegador. Use Chrome ou Edge.";
+        connectButton.disabled = true;
+      }
+
+      // Função para conectar ao Arduino
+      async function connectToArduino() {
+        try {
+          port = await navigator.serial.requestPort();
+          await port.open({ baudRate: 9600 });
+
+          statusElement.textContent = "Conectado ao Arduino!";
+          connectButton.textContent = "Desconectar";
+          connectButton.removeEventListener("click", connectToArduino);
+          connectButton.addEventListener("click", disconnectFromArduino);
+
+          startReading();
+        } catch (error) {
+          console.error("Erro ao conectar:", error);
+          statusElement.textContent = `Erro ao conectar: ${error}`;
+        }
+      }
+
+      // Função para desconectar do Arduino
+      async function disconnectFromArduino() {
+        if (readingData) {
+          readingData = false;
+          reader.cancel();
+        }
+
+        if (port && port.readable) {
+          await port.close();
+        }
+
+        statusElement.textContent = "Desconectado";
+        connectButton.textContent = "Conectar Arduino";
+        connectButton.removeEventListener("click", disconnectFromArduino);
+        connectButton.addEventListener("click", connectToArduino);
+      }
+
+      // Função para iniciar a leitura dos dados
+      async function startReading() {
+        if (!port || !port.readable) {
+          return;
+        }
+
+        readingData = true;
+        reader = port.readable.getReader();
+
+        try {
+          let buffer = "";
+
+          while (readingData) {
+            const { value, done } = await reader.read();
+
+            if (done) {
+              break;
+            }
+
+            // Converter dados recebidos para texto
+            const textDecoder = new TextDecoder();
+            const chunk = textDecoder.decode(value);
+
+            // Adicionar ao buffer
+            buffer += chunk;
+
+            // Processar linhas completas
+            let lineEnd;
+            while ((lineEnd = buffer.indexOf("\n")) !== -1) {
+              const line = buffer.substring(0, lineEnd).trim();
+              buffer = buffer.substring(lineEnd + 1);
+
+              if (line) {
+                try {
+                  const data = JSON.parse(line);
+                  updateUI(data);
+                } catch (e) {
+                  console.error("Erro ao analisar JSON:", e, line);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Erro na leitura:", error);
+        } finally {
+          reader.releaseLock();
+        }
+      }
+
+      // Função para atualizar a interface com os dados recebidos
+      function updateUI(data) {
+        // Atualizar barra de força
+        const force = data.force;
+        forceBar.style.width = `${force}%`;
+        forceValue.textContent = `${force}%`;
+
+        // Atualizar posição da bolinha na curva
+        const normalizedForce = force / 100; // Normalizar força para 0-1
+        const x = 50; // Posição x fixa no centro
+        const y = calculateYPositionOnCurve(normalizedForce);
+        ball.style.left = `${x}%`;
+        ball.style.top = `${y}px`;
+
+        // Atualizar contagem de repetições
+        repCount.textContent = data.reps;
+
+        // Atualizar força máxima
+        if (force > maxForceValue) {
+          maxForceValue = force;
+          maxForce.textContent = `${maxForceValue}%`;
+        }
+      }
+
+      function calculateYPositionOnCurve(t) {
+        // Função que calcula a posição Y na curva senoidal
+        const amplitude = 75; // Altura da curva
+        const centerY = 125; // Centro vertical
+        return centerY + amplitude * Math.sin(t * Math.PI * 2);
+      }
+
+      function createTargetBall() {
+        const targetBall = document.createElement("div");
+        targetBall.className = "target-ball";
+
+        // Posicionar na curva
+        const t = Math.random(); // Posição aleatória na curva
+        const x = 100; // Começa do lado direito
+        const y = calculateYPositionOnCurve(t);
+
+        targetBall.style.left = `${x}%`;
+        targetBall.style.top = `${y}px`;
+        document.querySelector(".track").appendChild(targetBall);
+
+        activeBalls.push({
+          element: targetBall,
+          position: 100,
+          curvePosition: t,
+        });
+      }
+
+      function updateTargetBalls() {
+        activeBalls = activeBalls.filter((ball) => {
+          ball.position -= 0.5; // Movimento mais lento
+          const y = calculateYPositionOnCurve(ball.curvePosition);
+          ball.element.style.left = `${ball.position}%`;
+          ball.element.style.top = `${y}px`;
+
+          // Verificar colisão
+          const ballRect = document
+            .getElementById("ball")
+            .getBoundingClientRect();
+          const targetRect = ball.element.getBoundingClientRect();
+
+          if (isColliding(ballRect, targetRect)) {
+            ball.element.remove();
+            score += 10;
+            document.getElementById("score").textContent = score;
+            return false;
+          }
+
+          if (ball.position < 0) {
+            ball.element.remove();
+            return false;
+          }
+
+          return true;
+        });
+      }
+
+      // Função para verificar colisão
+      function isColliding(rect1, rect2) {
+        return !(
+          rect1.right < rect2.left ||
+          rect1.left > rect2.right ||
+          rect1.bottom < rect2.top ||
+          rect1.top > rect2.bottom
+        );
+      }
+
+      // Eventos dos botões do jogo
+      startButton.addEventListener("click", () => {
+        if (gameStatus === KEY_GAME_STATUS.STOPPED) {
+          startGame();
+          gameStatus = KEY_GAME_STATUS.RUNNING;
+          startButton.textContent = "Continuar";
+          pauseButton.disabled = false;
+          resetButton.disabled = false;
+        } else if (gameStatus === KEY_GAME_STATUS.PAUSED) {
+          gameStatus = KEY_GAME_STATUS.RUNNING;
+          startButton.disabled = true;
+          pauseButton.disabled = false;
+        }
+      });
+
+      pauseButton.addEventListener("click", () => {
+        if (gameStatus === KEY_GAME_STATUS.RUNNING) {
+          gameStatus = KEY_GAME_STATUS.PAUSED;
+          startButton.disabled = false;
+          pauseButton.disabled = true;
+        }
+      });
+
+      resetButton.addEventListener("click", () => {
+        resetGame();
+      });
+
+      function startGame() {
+        if (gameInterval) {
+          clearInterval(gameInterval);
+        }
+
+        // Resetar timer
+        timeLeft = 30;
+        document.getElementById("timer").textContent = timeLeft;
+
+        // Iniciar timer
+        if (timerInterval) {
+          clearInterval(timerInterval);
+        }
+
+        timerInterval = setInterval(() => {
+          if (gameStatus === KEY_GAME_STATUS.RUNNING) {
+            timeLeft--;
+            document.getElementById("timer").textContent = timeLeft;
+
+            if (timeLeft <= 0) {
+              resetGame();
+            }
+          }
+        }, 1000);
+
+        gameInterval = setInterval(() => {
+          if (gameStatus === KEY_GAME_STATUS.RUNNING) {
+            if (Math.random() < 0.02) {
+              createTargetBall();
+            }
+            updateTargetBalls();
+          }
+        }, 50);
+      }
+
+      function resetGame() {
+        // Parar o jogo
+        gameStatus = KEY_GAME_STATUS.STOPPED;
+        clearInterval(gameInterval);
+        clearInterval(timerInterval);
+
+        // Resetar timer
+        timeLeft = 30;
+        document.getElementById("timer").textContent = timeLeft;
+
+        // Limpar bolinhas
+        activeBalls.forEach((ball) => ball.element.remove());
+        activeBalls = [];
+
+        // Resetar pontuação
+        score = 0;
+        document.getElementById("score").textContent = "0";
+
+        // Resetar botões
+        startButton.textContent = "Iniciar Jogo";
+        startButton.disabled = false;
+        pauseButton.disabled = true;
+        resetButton.disabled = true;
+      }
+    </script>
+  </body>
+</html>
