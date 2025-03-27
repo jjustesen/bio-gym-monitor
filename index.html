@@ -74,6 +74,24 @@
         fill: none;
         stroke: #444;
         stroke-width: 3;
+        stroke-linecap: round;
+      }
+
+      @keyframes moveLine {
+        0% {
+          transform: translateX(0%);
+        }
+        100% {
+          transform: translateX(-100%);
+        }
+      }
+
+      .moving-line {
+        animation: moveLine 10s linear infinite;
+        position: absolute;
+        width: 200%;
+        height: 100%;
+        left: 0;
       }
 
       .ball {
@@ -95,7 +113,7 @@
         height: 20px;
         background-color: #ffd700;
         border-radius: 50%;
-        transition: all 0.3s;
+        transition: top 0.3s;
         z-index: 1;
         box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
       }
@@ -221,9 +239,6 @@
         <div class="track-container">
           <div class="timer-display"><span id="timer">30</span>s</div>
           <div class="track">
-            <svg width="100%" height="100%" preserveAspectRatio="none">
-              <path class="curve-path" d="M0,125 Q200,50 400,125 T800,125" />
-            </svg>
             <div class="ball" id="ball"></div>
           </div>
         </div>
@@ -252,6 +267,8 @@
       let activeBalls = [];
       let timeLeft = 30;
       let timerInterval;
+      let lineOffset = 0;
+      let lastTime = 0;
 
       const KEY_GAME_STATUS = {
         RUNNING: "running",
@@ -260,6 +277,9 @@
       };
 
       let gameStatus = KEY_GAME_STATUS.STOPPED;
+
+      const WAVE_WIDTH = 400; // Largura de uma onda completa
+      const MOVEMENT_SPEED = 100; // Pixels por segundo
 
       // Elementos da interface
       const connectButton = document.getElementById("connectButton");
@@ -375,11 +395,9 @@
         forceBar.style.width = `${force}%`;
         forceValue.textContent = `${force}%`;
 
-        // Atualizar posição da bolinha na curva
-        const normalizedForce = force / 100; // Normalizar força para 0-1
-        const x = 50; // Posição x fixa no centro
-        const y = calculateYPositionOnCurve(normalizedForce);
-        ball.style.left = `${x}%`;
+        // Atualizar posição da bolinha branca
+        const normalizedForce = force / 100;
+        const y = 125 + 75 * (1 - 2 * normalizedForce); // Mapear força para posição Y
         ball.style.top = `${y}px`;
 
         // Atualizar contagem de repetições
@@ -392,38 +410,44 @@
         }
       }
 
-      function calculateYPositionOnCurve(t) {
-        // Função que calcula a posição Y na curva senoidal
-        const amplitude = 75; // Altura da curva
-        const centerY = 125; // Centro vertical
-        return centerY + amplitude * Math.sin(t * Math.PI * 2);
+      function calculateYPositionOnCurve(x) {
+        const amplitude = 75;
+        const frequency = (2 * Math.PI) / WAVE_WIDTH;
+        return 125 + amplitude * Math.sin(frequency * x);
       }
 
       function createTargetBall() {
         const targetBall = document.createElement("div");
         targetBall.className = "target-ball";
 
-        // Posicionar na curva
-        const t = Math.random(); // Posição aleatória na curva
-        const x = 100; // Começa do lado direito
-        const y = calculateYPositionOnCurve(t);
+        // Posicionar na curva no ponto mais à direita
+        const x = window.innerWidth;
+        const y = calculateYPositionOnCurve(x + lineOffset);
 
-        targetBall.style.left = `${x}%`;
+        targetBall.style.left = `${x}px`;
         targetBall.style.top = `${y}px`;
         document.querySelector(".track").appendChild(targetBall);
 
         activeBalls.push({
           element: targetBall,
-          position: 100,
-          curvePosition: t,
+          x: x,
         });
       }
 
-      function updateTargetBalls() {
+      function updateTargetBalls(timestamp) {
+        // Atualizar o offset da linha
+        const deltaTime = timestamp - lastTime;
+        lineOffset += (MOVEMENT_SPEED * deltaTime) / 1000;
+        lastTime = timestamp;
+
         activeBalls = activeBalls.filter((ball) => {
-          ball.position -= 0.5; // Movimento mais lento
-          const y = calculateYPositionOnCurve(ball.curvePosition);
-          ball.element.style.left = `${ball.position}%`;
+          // Mover a bolinha para a esquerda
+          ball.x -= (MOVEMENT_SPEED * deltaTime) / 1000;
+
+          // Calcular a posição Y baseada na curva
+          const y = calculateYPositionOnCurve(ball.x + lineOffset);
+
+          ball.element.style.left = `${ball.x}px`;
           ball.element.style.top = `${y}px`;
 
           // Verificar colisão
@@ -439,7 +463,7 @@
             return false;
           }
 
-          if (ball.position < 0) {
+          if (ball.x < -20) {
             ball.element.remove();
             return false;
           }
@@ -490,9 +514,12 @@
           clearInterval(gameInterval);
         }
 
-        // Resetar timer
+        // Resetar timer e variáveis
         timeLeft = 30;
         document.getElementById("timer").textContent = timeLeft;
+        lineOffset = 0;
+        lastTime = performance.now();
+        let lastBallTime = 0; // Novo: controlar tempo da última bolinha
 
         // Iniciar timer
         if (timerInterval) {
@@ -510,14 +537,20 @@
           }
         }, 1000);
 
-        gameInterval = setInterval(() => {
+        // Usar requestAnimationFrame para animação suave
+        function gameLoop(timestamp) {
           if (gameStatus === KEY_GAME_STATUS.RUNNING) {
-            if (Math.random() < 0.02) {
+            // Criar nova bolinha a cada segundo
+            if (timestamp - lastBallTime >= 500) {
               createTargetBall();
+              lastBallTime = timestamp;
             }
-            updateTargetBalls();
+            updateTargetBalls(timestamp);
+            requestAnimationFrame(gameLoop);
           }
-        }, 50);
+        }
+
+        requestAnimationFrame(gameLoop);
       }
 
       function resetGame() {
